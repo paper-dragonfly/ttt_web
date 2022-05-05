@@ -475,7 +475,7 @@ def play() -> str:
 
         winner = False
         while not winner:
-            processed_user_input = get_move(game_state)
+            processed_user_input:Union[Tuple,str] = get_move(game_state)
             # Save game
             if processed_user_input == 'save':
                 save_game(game_state,cur, conn)
