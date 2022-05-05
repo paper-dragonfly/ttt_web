@@ -50,17 +50,31 @@ def make_move():
     else:
         return "Request Fields: game_id, move"
 
-@ttt_app.route("/games")
+@ttt_app.route("/games", methods=['GET','POST'])
 def display_games():
     # open db connection
     conn, cur = ttt.db_connect()
+    if request.method == 'POST':
+        display_POST_input = request.get_json()
+        name_search = display_POST_input['name']
+        sql = """SELECT game_name, game_id FROM game_log 
+                    WHERE game_name LIKE %s 
+                    ORDER BY game_name"""
+        str_subs = (f'%{name_search}%',)
+        cur.execute(sql,str_subs)
+        game_names = cur.fetchall()
+    else:
     # get all game_id and game_name 
-    cur.execute("SELECT game_name, game_id FROM game_log ORDER BY game_name")
-    game_names = cur.fetchall()
+        cur.execute("SELECT game_name, game_id FROM game_log")
+        game_names = cur.fetchall()
     cur.close()
     conn.close()
     return f"Game Name | Game ID \n{game_names}"
 
+# @ttt_app.route("/users")
+#     conn, cur = ttt.db_connect()
+#     #rank users
+#     #display users
 
 
 if __name__ == "__main__":
