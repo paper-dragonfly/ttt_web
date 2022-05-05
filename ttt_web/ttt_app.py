@@ -29,12 +29,12 @@ def new_game():
 @ttt_app.route('/move', methods=['GET','POST'])
 def make_move():
     if request.method == "POST":
-        # pdb.set_trace()
+        # extract user input
         move_POST_input:dict = request.get_json()
         game_id:int = move_POST_input["game_id"]
         move:str = move_POST_input["move"]
         # convert move (eg. A1) to coordinates (0,0)
-        coordinates:list = ttt.convert(move)
+        coordinates:tuple = ttt.convert(move)
         #open db connection
         conn,cur = ttt.db_connect()
         #is move valid?
@@ -49,6 +49,18 @@ def make_move():
         return add_move[1]
     else:
         return "Request Fields: game_id, move"
+
+@ttt_app.route("/games")
+def display_games():
+    # open db connection
+    conn, cur = ttt.db_connect()
+    # get all game_id and game_name 
+    cur.execute("SELECT game_name, game_id FROM game_log ORDER BY game_name")
+    game_names = cur.fetchall()
+    cur.close()
+    conn.close()
+    return f"Game Name | Game ID \n{game_names}"
+
 
 
 if __name__ == "__main__":

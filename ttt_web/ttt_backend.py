@@ -66,7 +66,7 @@ def log_new_game(POST_info:dict):
     conn.close()
     return game_id
 
-def convert(move:str) -> list:
+def convert(move:str) -> tuple:
     move = move.upper()
     con_dict = {
         'A1' : [0,0],
@@ -122,7 +122,8 @@ def update_move_log(game_id:int, coordinates:tuple, conn:psycopg2.extensions.con
     conn.commit()
     return (True, "move successful")
     
-
+def display_games(cur:psycopg2.extensions.cursor, user_search:str):
+    sql_get_names = "SELECT game_id, game_name FROM game_log"
 
  
     
