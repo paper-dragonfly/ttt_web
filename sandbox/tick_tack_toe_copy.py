@@ -3,9 +3,7 @@
 import copy
 import json 
 from datetime import datetime
-from pathlib import Path
 import re
-from sqlite3 import Cursor 
 from typing import Dict, List, Tuple, Union
 import psycopg2
 from configparser import ConfigParser #to do with accesing .ini files
