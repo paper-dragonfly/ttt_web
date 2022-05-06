@@ -17,7 +17,6 @@ def new_game():
         new_game_POST_info:dict = request.get_json()
         game_id = ttt.log_new_game(new_game_POST_info)
         if game_id:
-            #TODO: don't actually want to redirect to display_game. Testing
             return f"Game successfully created. Game_id: {game_id}"
         else:
             return 'error:no game_id returned' 
@@ -70,10 +69,19 @@ def display_games():
     conn.close()
     return f"Game Name | Game ID \n{game_names}"
 
+@ttt_app.route("/users")
+def display_users():
+    conn, cur = ttt.db_connect()
+    users:List[str]=ttt.display_users(conn,cur)
+    return f'{users}'
+
+
 @ttt_app.route("/userstats", methods=['GET','POST'])
 def display_userstats():
     conn, cur = ttt.db_connect()
     leader_board:dict = ttt.generate_leader_board(conn,cur)
+    cur.close()
+    conn.close()
     if request.method == 'POST':
         user = request.get_json()['user_name']
         return f'{user}, {leader_board[user]}'

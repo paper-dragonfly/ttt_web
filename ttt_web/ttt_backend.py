@@ -51,8 +51,8 @@ def db_connect():
 def log_new_game(POST_info:dict):
     conn, cur = db_connect()
     board_size = POST_info['board_size']
-    player1 = POST_info['player1']
-    player2 = POST_info['player2']
+    player1 = POST_info['player1'].lower()
+    player2 = POST_info['player2'].lower()
     game_name = POST_info['game_name']
     
     sql_add_new_game = """INSERT INTO game_log("game_name","board_size","player1","player2","status")
@@ -121,7 +121,31 @@ def update_move_log(game_id:int, coordinates:tuple, conn:psycopg2.extensions.con
     cur.execute(sql,(game_id, next_move, json.dumps(coordinates)))
     conn.commit()
     return (True, "move successful")
+
+def display_users(conn, cur)->List[str]:
+    # Get all distinct users
+    # is there a more efficient way to do this? 
+    cur.execute("SELECT DISTINCT player1 FROM game_log")
+    all_p1:List[Tuple] = cur.fetchall()
+    cur.execute("SELECT DISTINCT player2 FROM game_log")
+    all_p2:List[Tuple] = cur.fetchall() 
+    users = []
+    for i in range(len(all_p1)):
+        user = all_p1[i][0]
+        if user not in users:
+            users.append(user)
+    for i in range(len(all_p2)):
+        user = all_p2[i][0]
+        if user not in users:
+            users.append(user)
+    # arrange list alphabetically, ignor case
+    users_alphasort = sorted(users, key=str.casefold)
+    return users_alphasort
     
+    
+
+
+
 def generate_leader_board(conn:psycopg2.extensions.connection, cur:psycopg2.extensions.cursor) -> dict:
     sql_get_summary_stats = """ 
     WITH 
