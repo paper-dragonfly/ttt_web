@@ -372,7 +372,7 @@ def update_user_stats(winner:str, loser:str):
         update_db(sql,str_subs)
 
 
-def display_leader_board(cur:psycopg2.extensions.cursor) :
+def display_leader_board(cur:psycopg2.extensions.cursor) -> None :
     sql_get_summary_stats = """ 
     WITH 
     winner_tally AS(

@@ -58,8 +58,7 @@ def display_games():
         display_POST_input = request.get_json()
         name_search = display_POST_input['name']
         sql = """SELECT game_name, game_id FROM game_log 
-                    WHERE game_name LIKE %s 
-                    ORDER BY game_name"""
+                    WHERE game_name LIKE %s ORDER BY game_name"""
         str_subs = (f'%{name_search}%',)
         cur.execute(sql,str_subs)
         game_names = cur.fetchall()
@@ -71,10 +70,21 @@ def display_games():
     conn.close()
     return f"Game Name | Game ID \n{game_names}"
 
-# @ttt_app.route("/users")
-#     conn, cur = ttt.db_connect()
-#     #rank users
-#     #display users
+@ttt_app.route("/userstats", methods=['GET','POST'])
+def display_userstats():
+    conn, cur = ttt.db_connect()
+    leader_board:dict = ttt.generate_leader_board(conn,cur)
+    if request.method == 'POST':
+        user = request.get_json()['user_name']
+        return f'{user}, {leader_board[user]}'
+    else:  
+        return f'{leader_board}'
+
+
+
+    
+    #rank users
+    #display users
 
 
 if __name__ == "__main__":
