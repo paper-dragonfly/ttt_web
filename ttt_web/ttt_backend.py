@@ -66,7 +66,7 @@ def log_new_game(POST_info:dict):
     conn.close()
     return game_id
 
-def convert(move:str) -> tuple:
+def convert(move:str) -> list:
     move = move.upper()
     con_dict = {
         'A1' : [0,0],
@@ -88,9 +88,9 @@ def convert(move:str) -> tuple:
          }
     r = con_dict[move][0]
     c = con_dict[move][1]
-    return (r,c)
+    return [r,c]
 
-def check_valid(game_id:int, coordinates:tuple, cur:psycopg2.extensions.cursor):
+def check_valid(game_id:int, coordinates:list, cur:psycopg2.extensions.cursor):
     # is move in board? 
     cur.execute("SELECT board_size FROM game_log WHERE game_id = %s",(game_id,))
     size = cur.fetchone()[0]
@@ -104,7 +104,6 @@ def check_valid(game_id:int, coordinates:tuple, cur:psycopg2.extensions.cursor):
             return (False, "Spot already occupied")
     # move valid
     return (True, "move valid")
-
 
 def update_move_log(game_id:int, coordinates:tuple, conn:psycopg2.extensions.connection, cur:psycopg2.extensions.cursor):
     #who's move is it, x/o?
@@ -120,7 +119,77 @@ def update_move_log(game_id:int, coordinates:tuple, conn:psycopg2.extensions.con
     sql = "INSERT INTO move_log(game_id,player_symbol,move_coordinate) VALUES(%s,%s,%s)"
     cur.execute(sql,(game_id, next_move, json.dumps(coordinates)))
     conn.commit()
-    return (True, "move successful")
+    return (True, "move successful", next_move)
+
+
+def check_win(conn, cur, game_id:int, player_symbol:str) -> bool:
+    # get all moves for player that just played 
+    sql = """SELECT move_coordinate FROM move_log 
+                WHERE game_id=%s AND player_symbol=%s"""
+    str_subs = (game_id, player_symbol)
+    cur.execute(sql,str_subs)
+    player_moves_tups = cur.fetchall()
+    player_moves = []
+    for i in range(len(player_moves_tups)):
+        player_moves.append(player_moves_tups[i][0]) #[[0,0],[1,2],[0,2]]
+    # find how many peices player has in each row/col
+    cur.execute("SELECT board_size FROM game_log WHERE game_id=%s",(game_id,))
+    board_size = cur.fetchone()[0]
+    row_dict = {}
+    col_dict = {}
+    for i in range(board_size):
+        row_dict[i] = 0    #eg {0:0, 1:0, 2:0}
+        col_dict[i] = 0
+    for i in range(len(player_moves)):
+        row_dict[player_moves[i][0]] += 1
+        col_dict[player_moves[i][1]] += 1
+    #check horizontal
+    for key in row_dict:
+        if row_dict[key] == board_size:
+            return True 
+    # check vert
+    for key in col_dict:
+        if col_dict[key] == board_size:
+            return True
+    # check di
+        # determine what set of coordinates are needed for a diagonal win
+        di_win1 = set()
+        di_win2 = set()
+        rev = board_size - 1
+        for i in range(board_size):
+            di_win1.add(f"{i},{i}")
+            di_win2.add(f"{rev-i},{i}")
+        # turn player_moves:List[List] -> set[str]
+        player_moves_str:set = set()
+        for coordinate in player_moves:
+            player_moves_str.add(f"{coordinate[0]},{coordinate[1]}")
+        # does player have coordinates for di win? 
+        if di_win1.issubset(player_moves_str) or di_win2.issubset(player_moves_str):
+            return True
+    else:
+        return False
+
+def display_gb(cur, game_id:int)->List[List]:
+    # generate emptry board of correct size
+    cur.execute("SELECT board_size FROM game_log WHERE game_id=%s",(game_id,))
+    board_size = cur.fetchone()[0]
+    if board_size == 4:
+        gb = copy.deepcopy(EMPTY_4X4_BOARD)
+    elif board_size == 3: 
+        gb = copy.deepcopy(EMPTY_3X3_BOARD)
+    # get moves
+    sql = "SELECT player_symbol,move_coordinate FROM move_log WHERE game_id=%s"
+    str_subs = (game_id,)
+    cur.execute(sql, str_subs)
+    moves = cur.fetchall()
+    # generate gb
+    for i in range(len(moves)):
+        r = moves[i][1][0]
+        c = moves[i][1][1]
+        symb = moves[i][0]
+        gb[r][c] = symb
+    return gb
+
 
 def display_users(conn, cur)->List[str]:
     # Get all distinct users
@@ -143,9 +212,6 @@ def display_users(conn, cur)->List[str]:
     return users_alphasort
     
     
-
-
-
 def generate_leader_board(conn:psycopg2.extensions.connection, cur:psycopg2.extensions.cursor) -> dict:
     sql_get_summary_stats = """ 
     WITH 
@@ -199,6 +265,8 @@ def generate_leader_board(conn:psycopg2.extensions.connection, cur:psycopg2.exte
         else: #lower %wins -> lower rank
             leader_board[cur_player_tup[0]].append(i+1)
     return leader_board 
+
+
 
  
     

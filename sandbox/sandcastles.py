@@ -1,5 +1,17 @@
 import psycopg2
 from configparser import ConfigParser #to do with accesing .ini files
+import pdb
+from typing import Dict, List, Tuple, Union
+import copy
+
+EMPTY_3X3_BOARD = [['_','_','_'],
+                   ['_','_','_'],
+                   ['_','_','_']]
+
+EMPTY_4X4_BOARD = [['_','_','_','_'],
+                    ['_','_','_','_'],
+                    ['_','_','_','_'],
+                    ['_','_','_','_']]
 
 # Get db connection data from config.ini 
 def config(config_file:str='config/config.ini', section:str='postgresql') -> dict:
@@ -22,11 +34,27 @@ def db_connect():
     cur = conn.cursor()
     return conn,cur
 
-def fetch():
+def display_gb(game_id:int)->List[List]:
     conn, cur = db_connect()
-    cur.execute("select * from game_log")
-    x = cur.fetchone()[0]
-    print(type(x))
-    print(x) 
+    # generate emptry board of correct size
+    cur.execute("SELECT board_size FROM game_log WHERE game_id=%s",(game_id,))
+    board_size = cur.fetchone()[0]
+    if board_size == 4:
+        gb = copy.deepcopy(EMPTY_4X4_BOARD)
+    elif board_size == 3: 
+        gb = copy.deepcopy(EMPTY_3X3_BOARD)
+    # 
+    sql = "SELECT player_symbol,move_coordinate FROM move_log WHERE game_id=%s"
+    str_subs = (game_id,)
+    cur.execute(sql, str_subs)
+    moves = cur.fetchall()
+    print(moves)
+    for i in range(len(moves)):
+        r = moves[i][1][0]
+        c = moves[i][1][1]
+        symb = moves[i][0]
+        gb[r][c] = symb
+    return gb
 
-fetch()
+
+display_gb(5)

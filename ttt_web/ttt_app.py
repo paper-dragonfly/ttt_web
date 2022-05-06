@@ -24,7 +24,6 @@ def new_game():
         return "<h1>Request Fields:\nboard_size\nplayer1\nplayer2\ngame_name</h1>"
 
 
-# Customize URL based on game_id? Do I even need this endpoint? 
 @ttt_app.route('/move', methods=['GET','POST'])
 def make_move():
     if request.method == "POST":
@@ -33,7 +32,8 @@ def make_move():
         game_id:int = move_POST_input["game_id"]
         move:str = move_POST_input["move"]
         # convert move (eg. A1) to coordinates (0,0)
-        coordinates:tuple = ttt.convert(move)
+        #TODO: need to check valid before trying to convert
+        coordinates:list = ttt.convert(move)
         #open db connection
         conn,cur = ttt.db_connect()
         #is move valid?
@@ -41,11 +41,19 @@ def make_move():
         if not valid[0]:
             return valid[1]
         #add move to db
-        add_move:Tuple[bool,str] = ttt.update_move_log(game_id, coordinates,conn,cur)
+        add_move:Tuple[bool,str,str] = ttt.update_move_log(game_id, coordinates,conn,cur)
+        
+        #check win
+        player_symbol = add_move[2]
+        win = ttt.check_win(conn,cur, game_id, player_symbol)
         #close db connection
         cur.close()
         conn.close()
-        return add_move[1]
+        if win:
+            #TODO: change to player name
+            return f"{player_symbol} wins! Game Over."
+        else:
+            return add_move[1]
     else:
         return "Request Fields: game_id, move"
 
@@ -88,12 +96,15 @@ def display_userstats():
     else:  
         return f'{leader_board}'
 
-
-
-    
-    #rank users
-    #display users
-
+@ttt_app.route("/viewgame", methods=["GET","POST"])
+def view_game():
+    conn, cur = ttt.db_connect()
+    if request.method == 'POST':
+        game_id = request.get_json()['game_id']
+        gb = ttt.display_gb(cur, game_id)
+        return f'{gb}'
+    else:
+        return "Must POST valid game_id"
 
 if __name__ == "__main__":
     ttt_app.run(host='localhost',port=5001)
