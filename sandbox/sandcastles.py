@@ -14,7 +14,7 @@ EMPTY_4X4_BOARD = [['_','_','_','_'],
                     ['_','_','_','_']]
 
 # Get db connection data from config.ini 
-def config(config_file:str='config/config.ini', section:str='postgresql') -> dict:
+def config(config_file:str='ttt_web/config/config.ini', section:str='postgresql') -> dict:
     parser = ConfigParser()
     parser.read(config_file)
     db_params = {}
@@ -33,6 +33,7 @@ def db_connect():
     conn = psycopg2.connect(**params)
     cur = conn.cursor()
     return conn,cur
+conn, cur = db_connect()
 
 def display_gb(game_id:int)->List[List]:
     conn, cur = db_connect()
@@ -55,6 +56,19 @@ def display_gb(game_id:int)->List[List]:
         symb = moves[i][0]
         gb[r][c] = symb
     return gb
+# display_gb(5)
 
+def create_databases(conn,cur):
+    cur.execute("SELECT * FROM pg_catalog.pg_database where datname = 'ho' ")
+    game_db = cur.fetchone()
+    # pdb.set_trace()
+    try:
+        len(game_db)
+        print('yes db') 
+    except TypeError:
+        print('no db')
 
-display_gb(5)
+print(create_databases(conn, cur))
+
+print('done')
+

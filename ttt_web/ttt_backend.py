@@ -7,16 +7,15 @@ import psycopg2
 from configparser import ConfigParser #to do with accesing .ini files
 import pdb 
 
-EXIT = 'exit'
-
 INTRO_TEXT = """
 \nWelcome to Tick_Tack_Toe!\n
-    What you can do on your turn: 
-    Type coordinates to place your marker
-    Type 's' or 'save' to save your game
-    Type 'undo' to undo the last move
-    Type 'leader board' to view player stats 
-    Type 'end' to cancel the game\n """ #change later
+    What you can do:
+    /new: create a new game -> ex POST{'board_size': 3, "game_name": "xobaby", "player1":"kaja","player2": "nico"}
+    /move: make a move -> ex POST{"game_id":5, "move":"A1"}
+    /games: view game(s), GET: lists all games, POST: search for games by game_name -> ex POST{"game_name":"baby"} -> Displays "xobaby"
+    /users: displays all users
+    /userstats: shows user statistics (User_name, total_games, %wins, rank) | GET: displays leader board with all users | POST: search stats for single user ex POST{"user_name":"kaja"}
+    /viewgame: displays game board for selected game | ex POST{"game_id":5}"""
 
 EMPTY_3X3_BOARD = [['_','_','_'],
                    ['_','_','_'],
@@ -55,9 +54,9 @@ def log_new_game(POST_info:dict):
     player2 = POST_info['player2'].lower()
     game_name = POST_info['game_name']
     
-    sql_add_new_game = """INSERT INTO game_log("game_name","board_size","player1","player2","status")
-                VALUES(%s,%s,%s,%s,%s)"""
-    str_subs_add_new_game = (game_name,board_size,player1,player2,'active')
+    sql_add_new_game = """INSERT INTO game_log("game_name","board_size","player1","player2")
+                VALUES(%s,%s,%s,%s)"""
+    str_subs_add_new_game = (game_name,board_size,player1,player2)
     cur.execute(sql_add_new_game,str_subs_add_new_game)
     conn.commit() 
     cur.execute("SELECT game_id FROM game_log WHERE game_name = %s",(game_name,))
@@ -168,6 +167,32 @@ def check_win(conn, cur, game_id:int, player_symbol:str) -> bool:
             return True
     else:
         return False
+
+def check_stale_mate(cur,game_id:int)->bool:
+    cur.execute("SELECT COUNT(*) FROM move_log WHERE game_id=%s",(game_id,))
+    total_moves = cur.fetchone()
+    cur.execute("SELECT board_size FROM game_log WHERE game_id=%s",(game_id,))
+    board_size = cur.fetchone()[0]
+    if total_moves == board_size**2:
+        return True
+    else:
+        return False
+    
+def update_game_log(conn, cur, game_id:int, player_symbol:str, win:bool=True):
+    # get player name
+    cur.execute("SELECT player1,player2 FROM game_log WHERE game_id =%s",(game_id,))
+    players = cur.fetchall()
+    player = players[0][0] #player1
+    if player_symbol == 'o':
+        player = players[1][0] #player2
+    if not win:
+        player = 'stalemate'
+    #update winner section of game_log
+    sql ="UPDATE game_log SET(winner = %s) WHERE game_id=%s"
+    str_subs = (player, game_id)
+    cur.execute(sql,str_subs) 
+    conn.commit()
+    return True
 
 def display_gb(cur, game_id:int)->List[List]:
     # generate emptry board of correct size
