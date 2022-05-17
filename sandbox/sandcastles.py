@@ -61,6 +61,7 @@ def display_gb(game_id:int)->List[List]:
 def create_databases(conn,cur):
     cur.execute("SELECT * FROM pg_catalog.pg_database where datname = 'ho' ")
     game_db = cur.fetchone()
+    print(game_db)
     # pdb.set_trace()
     try:
         len(game_db)

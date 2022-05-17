@@ -1,6 +1,7 @@
-from types import NoneType
 import psycopg2
 from configparser import ConfigParser #to do with accesing .ini files
+from ttt_web.ttt_backend import db_connect
+import pdb
 
     
 # Get db connection data from config.ini 
@@ -16,57 +17,32 @@ def config(db_name:str='postgresql', config_file:str='ttt_web/config/config.ini'
         raise Exception(f"Section {db_name} not found in file {config_file}")
     return db_params 
 
-#connect to db
-def db_connect(db:str) :
-    conn = None
-    params = config(db)
-    conn = psycopg2.connect(**params)
-    cur = conn.cursor()
-    return conn,cur
-
 # create game_db if not exists
-def create_game_database()-> bool:
-    conn,cur = db_connect('initialize')
-    cur.execute("SELECT * FROM pg_catalog.pg_database where datname = 'ttt_http_api' ")
+def create_game_database(test=False)-> bool:
+    db_name = "ttt_http_api"
+    if test:
+        db_name = "ttt_http_api_test"
+    conn,cur = db_connect('initialize',True)
+    cur.execute("SELECT * FROM pg_catalog.pg_database where datname = %s ",(db_name,))
     game_db = cur.fetchone()
-    try:
-        len(game_db)
+    if isinstance(game_db, tuple):
         print('db already exists')
         db_created = False
-    except TypeError:
-        cur.execute("""CREAT DATABASE "ttt_http_api" """)
-        conn.commit()
+    elif game_db is None:
+        conn.autocommit = True
+        cur.execute(f"""CREATE DATABASE "{db_name}" """)
         db_created = True
-    finally:
-        cur.close()
-        conn.close()
-        return db_created
-
-# create test_db if not exists
-def create_test_database(db)-> bool:
-    conn,cur=db_connect('initialize')
-    cur.execute("SELECT * FROM pg_catalog.pg_database where datname = 'ttt_http_api_test' ")
-    game_db = cur.fetchone()
-    try:
-        len(game_db)
-        print('test db already exists')
-        db_created = False
-    except TypeError:
-        cur.execute("""CREAT DATABASE "ttt_http_api_test" """)
-        conn.commit()
-        db_created = True
-    finally:
-        cur.close()
-        conn.close()
-        return db_created
+    cur.close()
+    conn.close()
+    return db_created
 
 # Create table (if unexistant) in postgres db to store info of saved games 
 def create_game_log(db):
     sql_create = """
     CREATE TABLE IF NOT EXISTS game_log(
         game_id Serial PRIMARY KEY,
-        game_name VARCHAR(50) NOT NULL,
-        board_size INTEGER NOT NULL,
+        game_name VARCHAR(50),
+        board_size INTEGER,
         player1 VARCHAR(25),
         player2 VARCHAR(25),
         winner VARCHAR(25))"""
@@ -86,10 +62,9 @@ def create_move_log(db):
     sql_create_log = """
     CREATE TABLE IF NOT EXISTS move_log(
         move_id SERIAL PRIMARY KEY,
-        game_id INTEGER NOT NULL,
-        player_symbol VARCHAR(1)
-        move_coordinate JSONB
-        move_timestamp TIMESTAMP)
+        game_id INTEGER,
+        player_symbol VARCHAR(1),
+        move_coordinate JSONB)
         """
     conn = None
     params = config(db)
@@ -99,10 +74,17 @@ def create_move_log(db):
     conn.commit() 
     conn.close()
 
-if __name__ == "__main__":
-    create_game_database()
-    create_test_database()
+def create_game_db():
+    create_game_database(False)
     create_game_log('postgresql')
     create_move_log('postgresql')
+
+def create_test_db():
+    create_game_database(True)
     create_game_log('testing')
-    create_move_log('testing') 
+    create_move_log('testing')
+
+if __name__ == "__main__":
+    create_game_db()
+    create_test_db()
+     

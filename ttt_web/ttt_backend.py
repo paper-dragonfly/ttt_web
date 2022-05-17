@@ -9,13 +9,27 @@ import pdb
 
 INTRO_TEXT = """
 \nWelcome to Tick_Tack_Toe!\n
-    What you can do:
-    /new: create a new game -> ex POST{'board_size': 3, "game_name": "xobaby", "player1":"kaja","player2": "nico"}
-    /move: make a move -> ex POST{"game_id":5, "move":"A1"}
-    /games: view game(s), GET: lists all games, POST: search for games by game_name -> ex POST{"game_name":"baby"} -> Displays "xobaby"
-    /users: displays all users
-    /userstats: shows user statistics (User_name, total_games, %wins, rank) | GET: displays leader board with all users | POST: search stats for single user ex POST{"user_name":"kaja"}
-    /viewgame: displays game board for selected game | ex POST{"game_id":5}"""
+What you can do:
+
+/new: create a new game ->
+curl -d '{"board_size":"3","player1":"sun","player2":"moon","game_name":"star"}' -H "Content-Type: application/json" -X POST http://localhost:5001/new
+
+/move: make a move -> 
+curl -d '{"game_id":1, "move":"A1"}' -H "Content-Type: application/json" -X POST http://localhost:5001/move
+
+/games: view game(s), GET: lists all games, POST: search for games by game_name, can search by full or partial name -> 
+GET:  curl http://localhost:5001/games
+POST: curl -d '{"game_name": "game"} -H "Content-Type: application/json" -X POST http://localhost:5001/games
+
+/users: displays all users ->
+curl http://localhost:5001/games
+
+/userstats: shows user statistics (User_name, total_games, %wins, rank) | GET: displays leader board with all users | POST: search stats for single user ->
+GET:  curl http://localhost:5001/games
+POST: curl -d '{"user_name":"kaja"}' -H "Content-Type: application/json" -X POST http://localhost:5001/new
+
+/viewgame: displays game board for selected game ->
+curl -d '{"game_id":5}' -H "Content-Type: application/json" -X POST http://localhost:5001/new """
 
 EMPTY_3X3_BOARD = [['_','_','_'],
                    ['_','_','_'],
@@ -28,8 +42,9 @@ EMPTY_4X4_BOARD = [['_','_','_','_'],
 
 
 # Get db connection data from config.ini 
-def config(config_file:str='config/config.ini', section:str='postgresql') -> dict:
+def config(section:str, config_file:str='ttt_web/config/config.ini') -> dict:
     parser = ConfigParser()
+    # pdb.set_trace()
     parser.read(config_file)
     db_params = {}
     if parser.has_section(section):
@@ -40,31 +55,42 @@ def config(config_file:str='config/config.ini', section:str='postgresql') -> dic
         raise Exception(f"Section {section} not found in file {config_file}")
     return db_params 
 
-def db_connect():
+def db_connect(db, autocommit=False):
     conn = None
-    params = config()
+    params = config(db)
     conn = psycopg2.connect(**params)
+    conn.autocommit = autocommit
     cur = conn.cursor()
     return conn,cur
     
-def log_new_game(POST_info:dict):
-    conn, cur = db_connect()
+def log_new_game(POST_info:dict,db):
+    conn, cur = db_connect(db)
     board_size = POST_info['board_size']
     player1 = POST_info['player1'].lower()
     player2 = POST_info['player2'].lower()
     game_name = POST_info['game_name']
-    
+
+    #TODO: UPGRADE ensure game names are unique (?) - 
+    # currently multiple games can have same name, returned game_id will be lowest ID
+    #added MAX -> gets most recent. Doesn't prove new entry was successful
     sql_add_new_game = """INSERT INTO game_log("game_name","board_size","player1","player2")
                 VALUES(%s,%s,%s,%s)"""
     str_subs_add_new_game = (game_name,board_size,player1,player2)
     cur.execute(sql_add_new_game,str_subs_add_new_game)
     conn.commit() 
-    cur.execute("SELECT game_id FROM game_log WHERE game_name = %s",(game_name,))
+    cur.execute("SELECT MAX(game_id) FROM game_log WHERE game_name = %s",(game_name,))
     game_id:int = cur.fetchone()[0]
     cur.close()
     conn.close()
     return game_id
 
+def check_convertable(move:str)->bool:
+    move=move.upper()
+    if move[0] in ['A','B','C','D'] and int(move[1]) in [0,1,2,3] and len(move)==2:
+        return True
+    else:
+        return False
+ 
 def convert(move:str) -> list:
     move = move.upper()
     con_dict = {
@@ -94,34 +120,34 @@ def check_valid(game_id:int, coordinates:list, cur:psycopg2.extensions.cursor):
     cur.execute("SELECT board_size FROM game_log WHERE game_id = %s",(game_id,))
     size = cur.fetchone()[0]
     if not 0<=coordinates[0]<size and not 0<=coordinates[1]<size:
-        return (False,"Invalid Move")
+        return (False,"Invalid Move, not in board range")
     # is position already taken? 
     cur.execute("SELECT move_coordinate FROM move_log WHERE game_id = %s",(game_id,))
     all_moves:List[tuple] = cur.fetchall()
     for i in range(len(all_moves)):
         if coordinates == all_moves[i][0]:
             return (False, "Spot already occupied")
-    # move valid
+    # move is valid
     return (True, "move valid")
 
-def update_move_log(game_id:int, coordinates:tuple, conn:psycopg2.extensions.connection, cur:psycopg2.extensions.cursor):
+def update_move_log(game_id:int, coordinates:list, conn:psycopg2.extensions.connection, cur:psycopg2.extensions.cursor)->tuple:
     #who's move is it, x/o?
     sql = "SELECT COUNT(*) FROM move_log WHERE game_id = %s AND player_symbol = %s"
     cur.execute(sql,(game_id,"x"))
     x_count= cur.fetchone()[0]
     cur.execute(sql,(game_id,"o"))
     o_count = cur.fetchone()[0]
-    next_move = "x"
+    this_move = "x"
     if x_count>o_count:
-        next_move = "o" 
+        this_move = "o" 
     #insert move into db
     sql = "INSERT INTO move_log(game_id,player_symbol,move_coordinate) VALUES(%s,%s,%s)"
-    cur.execute(sql,(game_id, next_move, json.dumps(coordinates)))
+    cur.execute(sql,(game_id, this_move, json.dumps(coordinates)))
     conn.commit()
-    return (True, "move successful", next_move)
+    return (True, "move successful", this_move)
 
 
-def check_win(conn, cur, game_id:int, player_symbol:str) -> bool:
+def check_win(conn, cur, game_id:int, player_symbol:str) -> Tuple[bool,str]:
     # get all moves for player that just played 
     sql = """SELECT move_coordinate FROM move_log 
                 WHERE game_id=%s AND player_symbol=%s"""
@@ -145,11 +171,11 @@ def check_win(conn, cur, game_id:int, player_symbol:str) -> bool:
     #check horizontal
     for key in row_dict:
         if row_dict[key] == board_size:
-            return True 
+            return (True,'horizontal') 
     # check vert
     for key in col_dict:
         if col_dict[key] == board_size:
-            return True
+            return (True,'vertical')
     # check di
         # determine what set of coordinates are needed for a diagonal win
         di_win1 = set()
@@ -164,13 +190,13 @@ def check_win(conn, cur, game_id:int, player_symbol:str) -> bool:
             player_moves_str.add(f"{coordinate[0]},{coordinate[1]}")
         # does player have coordinates for di win? 
         if di_win1.issubset(player_moves_str) or di_win2.issubset(player_moves_str):
-            return True
+            return (True,'diagonal')
     else:
-        return False
+        return (False, 'no_win')
 
 def check_stale_mate(cur,game_id:int)->bool:
     cur.execute("SELECT COUNT(*) FROM move_log WHERE game_id=%s",(game_id,))
-    total_moves = cur.fetchone()
+    total_moves = cur.fetchone()[0]
     cur.execute("SELECT board_size FROM game_log WHERE game_id=%s",(game_id,))
     board_size = cur.fetchone()[0]
     if total_moves == board_size**2:
@@ -179,16 +205,16 @@ def check_stale_mate(cur,game_id:int)->bool:
         return False
     
 def update_game_log(conn, cur, game_id:int, player_symbol:str, win:bool=True):
-    # get player name
+    # get winning player's name
     cur.execute("SELECT player1,player2 FROM game_log WHERE game_id =%s",(game_id,))
     players = cur.fetchall()
     player = players[0][0] #player1
     if player_symbol == 'o':
-        player = players[1][0] #player2
+        player = players[0][1] #player2
     if not win:
         player = 'stalemate'
     #update winner section of game_log
-    sql ="UPDATE game_log SET(winner = %s) WHERE game_id=%s"
+    sql ="UPDATE game_log SET winner = %s WHERE game_id=%s"
     str_subs = (player, game_id)
     cur.execute(sql,str_subs) 
     conn.commit()
@@ -216,7 +242,7 @@ def display_gb(cur, game_id:int)->List[List]:
     return gb
 
 
-def display_users(conn, cur)->List[str]:
+def display_users(cur)->List[str]:
     # Get all distinct users
     # is there a more efficient way to do this? 
     cur.execute("SELECT DISTINCT player1 FROM game_log")
@@ -290,6 +316,7 @@ def generate_leader_board(conn:psycopg2.extensions.connection, cur:psycopg2.exte
         else: #lower %wins -> lower rank
             leader_board[cur_player_tup[0]].append(i+1)
     return leader_board 
+
 
 
 
