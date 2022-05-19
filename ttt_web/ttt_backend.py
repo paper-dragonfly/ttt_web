@@ -64,24 +64,26 @@ def db_connect(db, autocommit=False):
     return conn,cur
     
 def log_new_game(POST_info:dict,db):
-    conn, cur = db_connect(db)
-    board_size = POST_info['board_size']
-    player1 = POST_info['player1'].lower()
-    player2 = POST_info['player2'].lower()
-    game_name = POST_info['game_name']
+    try: 
+        conn, cur = db_connect(db)
+        board_size = POST_info['board_size']
+        player1 = POST_info['player1'].lower()
+        player2 = POST_info['player2'].lower()
+        game_name = POST_info['game_name']
 
     #TODO: UPGRADE ensure game names are unique (?) - 
     # currently multiple games can have same name, returned game_id will be lowest ID
     #added MAX -> gets most recent. Doesn't prove new entry was successful
-    sql_add_new_game = """INSERT INTO game_log("game_name","board_size","player1","player2")
-                VALUES(%s,%s,%s,%s)"""
-    str_subs_add_new_game = (game_name,board_size,player1,player2)
-    cur.execute(sql_add_new_game,str_subs_add_new_game)
-    conn.commit() 
-    cur.execute("SELECT MAX(game_id) FROM game_log WHERE game_name = %s",(game_name,))
-    game_id:int = cur.fetchone()[0]
-    cur.close()
-    conn.close()
+        sql_add_new_game = """INSERT INTO game_log("game_name","board_size","player1","player2")
+                    VALUES(%s,%s,%s,%s)"""
+        str_subs_add_new_game = (game_name,board_size,player1,player2)
+        cur.execute(sql_add_new_game,str_subs_add_new_game)
+        conn.commit() 
+        cur.execute("SELECT MAX(game_id) FROM game_log WHERE game_name = %s",(game_name,))
+        game_id:int = cur.fetchone()[0]
+    finally:
+        cur.close()
+        conn.close()
     return game_id
 
 def check_convertable(move:str)->bool:
