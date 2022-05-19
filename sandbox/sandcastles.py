@@ -4,6 +4,7 @@ from configparser import ConfigParser #to do with accesing .ini files
 import pdb
 from typing import Dict, List, Tuple, Union
 import copy
+import sys
 
 EMPTY_3X3_BOARD = [['_','_','_'],
                    ['_','_','_'],
@@ -36,16 +37,7 @@ def db_connect():
     return conn,cur
 conn, cur = db_connect()
 
-def exfetch():
-    try:
-        conn, cur = db_connect()
-        game_names = cur.execute("Select game_name from game_log")
-        print(game_names)
-    finally:
-        cur.close()
-        conn.close()
 
-exfetch()
     
 
 # def display_gb(game_id:int)->List[List]:

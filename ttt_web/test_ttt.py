@@ -110,7 +110,7 @@ def test_update_move_log():
     c.populate_move_log(0,5,'o','[1,1]',conn,cur)
     c.populate_move_log(0,5,'x','[2,2]',conn,cur)
     # assert that given a new valid move the move is inserted into db with right symbol
-    assert tb.update_move_log(5,[0,2],conn,cur) == (True, "move successful", 'o')
+    assert tb.update_move_log(5,[0,2],conn,cur) == 'o'
     cur.close()
     conn.close()
     c.clear_test_db()

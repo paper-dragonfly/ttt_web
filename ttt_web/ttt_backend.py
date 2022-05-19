@@ -41,7 +41,7 @@ EMPTY_4X4_BOARD = [['_','_','_','_'],
                     ['_','_','_','_']]
 
 
-# Get db connection data from config.ini 
+# Get db connection data from config.yaml
 
 def config(config_purpose:str,config_file:str='ttt_web/config/config.yaml') -> dict:
     with open(f'{config_file}', 'r') as f:

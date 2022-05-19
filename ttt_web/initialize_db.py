@@ -1,5 +1,4 @@
 import psycopg2
-import yaml
 from ttt_web.ttt_backend import db_connect
 from ttt_web.ttt_backend import config
 import pdb
