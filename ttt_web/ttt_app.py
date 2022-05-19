@@ -93,7 +93,7 @@ def create_app(db):
             conn.close()
         return json.dumps({"message":f"Game Name | Game ID \n{game_names}"})
 
-    @ttt_app.route("/users")
+    @ttt_app.route("/users", methods=['GET'])
     def display_users():
         try: 
             conn, cur = ttt.db_connect(db)
@@ -134,5 +134,5 @@ def create_app(db):
     return ttt_app
 
 if __name__ == "__main__":
-    ttt_app = create_app('postgresql')
+    ttt_app = create_app('play_game')
     ttt_app.run(host='localhost',port=5001)

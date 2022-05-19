@@ -291,9 +291,7 @@ def test_viewgame(client):
 
     
 
-    # confirm returns False 
-    # create game - stale mate
-    # confirm returns True
+
 
 
 

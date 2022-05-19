@@ -4,7 +4,7 @@ from datetime import datetime
 import re
 from typing import Dict, List, Tuple, Union
 import psycopg2
-from configparser import ConfigParser #to do with accesing .ini files
+import yaml
 import pdb 
 
 INTRO_TEXT = """
@@ -42,21 +42,14 @@ EMPTY_4X4_BOARD = [['_','_','_','_'],
 
 
 # Get db connection data from config.ini 
-def config(section:str, config_file:str='ttt_web/config/config.ini') -> dict:
-    parser = ConfigParser()
-    # pdb.set_trace()
-    parser.read(config_file)
-    db_params = {}
-    if parser.has_section(section):
-        item_tups = parser.items(section)
-        for tup in item_tups:
-            db_params[tup[0]] = tup[1]
-    else:
-        raise Exception(f"Section {section} not found in file {config_file}")
-    return db_params 
 
-def db_connect(db, autocommit=False):
-    conn = None
+def config(config_purpose:str,config_file:str='ttt_web/config/config.yaml') -> dict:
+    with open(f'{config_file}', 'r') as f:
+        config_dict = yaml.safe_load(f)
+    db_params = config_dict[config_purpose]
+    return db_params
+
+def db_connect(db:str, autocommit=False):
     params = config(db)
     conn = psycopg2.connect(**params)
     conn.autocommit = autocommit

@@ -1,21 +1,8 @@
 import psycopg2
-from configparser import ConfigParser #to do with accesing .ini files
+import yaml
 from ttt_web.ttt_backend import db_connect
+from ttt_web.ttt_backend import config
 import pdb
-
-    
-# Get db connection data from config.ini 
-def config(db_name:str='postgresql', config_file:str='ttt_web/config/config.ini') -> dict:
-    parser = ConfigParser()
-    parser.read(config_file)
-    db_params = {}
-    if parser.has_section(db_name):
-        item_tups = parser.items(db_name)
-        for tup in item_tups:
-            db_params[tup[0]] = tup[1]
-    else:
-        raise Exception(f"Section {db_name} not found in file {config_file}")
-    return db_params 
 
 # create game_db if not exists
 def create_game_database(test=False)-> bool:
@@ -47,8 +34,7 @@ def create_game_log(db):
         player2 VARCHAR(25),
         winner VARCHAR(25))"""
 
-    conn,cur = db_connect(f'{db}')
-    conn = None
+    conn,cur = db_connect(db)
     params = config(db)
     conn = psycopg2.connect(**params)
     cur = conn.cursor()
@@ -76,8 +62,8 @@ def create_move_log(db):
 
 def create_game_db():
     create_game_database(False)
-    create_game_log('postgresql')
-    create_move_log('postgresql')
+    create_game_log('play_game')
+    create_move_log('play_game')
 
 def create_test_db():
     create_game_database(True)
