@@ -2,6 +2,7 @@ from flask import Flask, request, redirect, url_for
 from ttt_web import ttt_backend as ttt 
 from typing import Dict, List, Tuple, Union
 import pdb
+import json
 
 #TODO: eliminate 'GET' method option for routes that don't need it
 
@@ -10,7 +11,7 @@ def create_app(db):
 
     @ttt_app.route('/home')
     def home():
-        return ttt.INTRO_TEXT
+        return json.dumps({"message": ttt.INTRO_TEXT})
 
     @ttt_app.route('/new', methods=['GET','POST'])
     def new_game():
@@ -19,11 +20,11 @@ def create_app(db):
             new_game_POST_info:dict = request.get_json()
             game_id = ttt.log_new_game(new_game_POST_info,db)
             if game_id:
-                return f"Game successfully created. Game_id: {game_id}"
+                return json.dumps({"message" : "Game successfully created", "game_id" : game_id })
             else:
-                return 'error:no game_id returned' 
+                return json.dumps({"message":'error:no game_id returned'})
         else:
-            return "<h1>Request Fields:\nboard_size\nplayer1\nplayer2\ngame_name</h1>"
+            return json.dumps({"message":"Request Fields:\nboard_size\nplayer1\nplayer2\ngame_name"})
 
 
     @ttt_app.route('/move', methods=['GET','POST'])
@@ -35,7 +36,7 @@ def create_app(db):
             move:str = move_POST_input["move"]
             #check if move is in correct format 
             if not ttt.check_convertable(move):
-                return 'Move must be a letter followed by a number within the range of the board, eg A2'
+                return json.dumps({"message":'Move must be a letter followed by a number within the range of the board, eg A2'})
             # convert move (eg. A1) to coordinates (0,0)
             coordinates:list = ttt.convert(move)
             #open db connection
@@ -43,12 +44,11 @@ def create_app(db):
             #is move valid?
             valid:Tuple[bool,str] = ttt.check_valid(game_id, coordinates, cur)
             if not valid[0]:
-                return valid[1]
+                return json.dumps({"message":valid[1]})
             #add move to db
-            add_move:Tuple[bool,str,str] = ttt.update_move_log(game_id, coordinates,conn,cur)
+            player_symbol = ttt.update_move_log(game_id, coordinates,conn,cur)
             
             #check win
-            player_symbol = add_move[2]
             win = ttt.check_win(conn,cur, game_id, player_symbol)
             if win[0]:
                 winner_updated = ttt.update_game_log(conn, cur, game_id, player_symbol)
@@ -61,13 +61,13 @@ def create_app(db):
             conn.close()
             if win[0]:
                 #TODO: change to player name
-                return f"{player_symbol} wins! Game Over."
+                return json.dumps({"message":f"{player_symbol} wins! Game Over."})
             elif stale_mate:
-                return "Stale Mate! Game Over"
+                return json.dumps({"message":"Stalemate! Game Over"})
             else:
-                return add_move[1] #"move successful"
+                return json.dumps({"message" : "move successful"})
         else:
-            return "Request Fields: game_id, move"
+            return json.dumps({"message": "Request Fields: game_id, move"})
 
     @ttt_app.route("/games", methods=['GET','POST'])
     def display_games():
@@ -87,7 +87,7 @@ def create_app(db):
             game_names = cur.fetchall()
         cur.close()
         conn.close()
-        return f"Game Name | Game ID \n{game_names}"
+        return json.dumps({"message":f"Game Name | Game ID \n{game_names}"})
 
     @ttt_app.route("/users")
     def display_users():
@@ -95,7 +95,7 @@ def create_app(db):
         users:List[str]=ttt.display_users(cur)
         cur.close()
         conn.close()
-        return f'{users}'
+        return json.dumps({"message":f'{users}'})
 
     @ttt_app.route("/userstats", methods=['GET','POST'])
     def display_userstats():
@@ -105,9 +105,9 @@ def create_app(db):
         conn.close()
         if request.method == 'POST':
             user = request.get_json()['user_name']
-            return f'{user}, {leader_board[user]}'
+            return json.dumps({"message":f'{user}, {leader_board[user]}'})
         else:  
-            return f'{leader_board}'
+            return json.dumps({"message":f'{leader_board}'})
 
     @ttt_app.route("/viewgame", methods=["GET","POST"])
     def view_game():
@@ -120,7 +120,7 @@ def create_app(db):
             r = "Must POST valid game_id"
         cur.close()
         conn.close()
-        return r
+        return json.dumps({"message":r})
     return ttt_app
 
 if __name__ == "__main__":

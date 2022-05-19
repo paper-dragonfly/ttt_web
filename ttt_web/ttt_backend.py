@@ -130,21 +130,21 @@ def check_valid(game_id:int, coordinates:list, cur:psycopg2.extensions.cursor):
     # move is valid
     return (True, "move valid")
 
-def update_move_log(game_id:int, coordinates:list, conn:psycopg2.extensions.connection, cur:psycopg2.extensions.cursor)->tuple:
+def update_move_log(game_id:int, coordinates:list, conn:psycopg2.extensions.connection, cur:psycopg2.extensions.cursor)->str:
     #who's move is it, x/o?
     sql = "SELECT COUNT(*) FROM move_log WHERE game_id = %s AND player_symbol = %s"
     cur.execute(sql,(game_id,"x"))
     x_count= cur.fetchone()[0]
     cur.execute(sql,(game_id,"o"))
     o_count = cur.fetchone()[0]
-    this_move = "x"
+    player_symbol = "x"
     if x_count>o_count:
-        this_move = "o" 
+        player_symbol = "o" 
     #insert move into db
     sql = "INSERT INTO move_log(game_id,player_symbol,move_coordinate) VALUES(%s,%s,%s)"
-    cur.execute(sql,(game_id, this_move, json.dumps(coordinates)))
+    cur.execute(sql,(game_id, player_symbol, json.dumps(coordinates)))
     conn.commit()
-    return (True, "move successful", this_move)
+    return (player_symbol)
 
 
 def check_win(conn, cur, game_id:int, player_symbol:str) -> Tuple[bool,str]:
