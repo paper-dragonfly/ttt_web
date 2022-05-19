@@ -40,25 +40,27 @@ def create_app(db):
             # convert move (eg. A1) to coordinates (0,0)
             coordinates:list = ttt.convert(move)
             #open db connection
-            conn,cur = ttt.db_connect(db)
-            #is move valid?
-            valid:Tuple[bool,str] = ttt.check_valid(game_id, coordinates, cur)
-            if not valid[0]:
-                return json.dumps({"message":valid[1]})
-            #add move to db
-            player_symbol = ttt.update_move_log(game_id, coordinates,conn,cur)
-            
-            #check win
-            win = ttt.check_win(conn,cur, game_id, player_symbol)
-            if win[0]:
-                winner_updated = ttt.update_game_log(conn, cur, game_id, player_symbol)
-            # check stalemate 
-            stale_mate = ttt.check_stale_mate(cur,game_id)
-            if stale_mate:
-                winner_updated = ttt.update_game_log(conn, cur, game_id, player_symbol,False)
-            #close db connection
-            cur.close()
-            conn.close()
+            try:
+                conn,cur = ttt.db_connect(db)
+                #is move valid?
+                valid:Tuple[bool,str] = ttt.check_valid(game_id, coordinates, cur)
+                if not valid[0]:
+                    return json.dumps({"message":valid[1]})
+                #add move to db
+                player_symbol = ttt.update_move_log(game_id, coordinates,conn,cur)
+                
+                #check win
+                win = ttt.check_win(conn,cur, game_id, player_symbol)
+                if win[0]:
+                    winner_updated = ttt.update_game_log(conn, cur, game_id, player_symbol)
+                # check stalemate 
+                stale_mate = ttt.check_stale_mate(cur,game_id)
+                if stale_mate:
+                    winner_updated = ttt.update_game_log(conn, cur, game_id, player_symbol,False)
+            finally:
+                #close db connection
+                cur.close()
+                conn.close()
             if win[0]:
                 #TODO: change to player name
                 return json.dumps({"message":f"{player_symbol} wins! Game Over."})
@@ -71,38 +73,44 @@ def create_app(db):
 
     @ttt_app.route("/games", methods=['GET','POST'])
     def display_games():
-        # open db connection
-        conn, cur = ttt.db_connect(db)
-        if request.method == 'POST':
-            display_POST_input = request.get_json()
-            name_search = display_POST_input['name']
-            sql = """SELECT game_name, game_id FROM game_log 
-                        WHERE game_name LIKE %s ORDER BY game_name"""
-            str_subs = (f'%{name_search}%',)
-            cur.execute(sql,str_subs)
-            game_names = cur.fetchall()
-        else:
-        # get all game_id and game_name 
-            cur.execute("SELECT game_name, game_id FROM game_log")
-            game_names = cur.fetchall()
-        cur.close()
-        conn.close()
+        try: 
+            # open db connection
+            conn, cur = ttt.db_connect(db)
+            if request.method == 'POST':
+                display_POST_input = request.get_json()
+                name_search = display_POST_input['name']
+                sql = """SELECT game_name, game_id FROM game_log 
+                            WHERE game_name LIKE %s ORDER BY game_name"""
+                str_subs = (f'%{name_search}%',)
+                cur.execute(sql,str_subs)
+                game_names = cur.fetchall()
+            else:
+            # get all game_id and game_name 
+                cur.execute("SELECT game_name, game_id FROM game_log")
+                game_names = cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
         return json.dumps({"message":f"Game Name | Game ID \n{game_names}"})
 
     @ttt_app.route("/users")
     def display_users():
-        conn, cur = ttt.db_connect(db)
-        users:List[str]=ttt.display_users(cur)
-        cur.close()
-        conn.close()
+        try: 
+            conn, cur = ttt.db_connect(db)
+            users:List[str]=ttt.display_users(cur)
+        finally: 
+            cur.close()
+            conn.close()
         return json.dumps({"message":f'{users}'})
 
     @ttt_app.route("/userstats", methods=['GET','POST'])
     def display_userstats():
-        conn, cur = ttt.db_connect(db)
-        leader_board:dict = ttt.generate_leader_board(conn,cur)
-        cur.close()
-        conn.close()
+        try: 
+            conn, cur = ttt.db_connect(db)
+            leader_board:dict = ttt.generate_leader_board(conn,cur)
+        finally:
+            cur.close()
+            conn.close()
         if request.method == 'POST':
             user = request.get_json()['user_name']
             return json.dumps({"message":f'{user}, {leader_board[user]}'})
@@ -111,15 +119,17 @@ def create_app(db):
 
     @ttt_app.route("/viewgame", methods=["GET","POST"])
     def view_game():
-        conn, cur = ttt.db_connect(db)
-        if request.method == 'POST':
-            game_id = request.get_json()['game_id']
-            gb = ttt.display_gb(cur, game_id)
-            r = f'{gb}'
-        else:
-            r = "Must POST valid game_id"
-        cur.close()
-        conn.close()
+        try:
+            conn, cur = ttt.db_connect(db)
+            if request.method == 'POST':
+                game_id = request.get_json()['game_id']
+                gb = ttt.display_gb(cur, game_id)
+                r = f'{gb}'
+            else:
+                r = "Must POST valid game_id"
+        finally:
+            cur.close()
+            conn.close()
         return json.dumps({"message":r})
     return ttt_app
 
