@@ -56,7 +56,7 @@ def db_connect(db:str, autocommit=False):
     cur = conn.cursor()
     return conn,cur
     
-def log_new_game(POST_info:dict,db):
+def log_new_game(POST_info:dict,db)->int:
     try: 
         conn, cur = db_connect(db)
         board_size = POST_info['board_size']
@@ -110,7 +110,7 @@ def convert(move:str) -> list:
     c = con_dict[move][1]
     return [r,c]
 
-def check_valid(game_id:int, coordinates:list, cur:psycopg2.extensions.cursor):
+def check_valid(game_id:int, coordinates:list, cur:psycopg2.extensions.cursor)-> tuple:
     # is move in board? 
     cur.execute("SELECT board_size FROM game_log WHERE game_id = %s",(game_id,))
     size = cur.fetchone()[0]

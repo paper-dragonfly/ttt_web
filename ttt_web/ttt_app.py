@@ -9,10 +9,6 @@ import json
 def create_app(db):
     ttt_app = Flask(__name__)
 
-    @ttt_app.route('/home')
-    def home():
-        return json.dumps({"message": ttt.INTRO_TEXT})
-
     @ttt_app.route('/new', methods=['GET','POST'])
     def new_game():
         # import pdb; pdb.set_trace()
@@ -20,7 +16,7 @@ def create_app(db):
             new_game_POST_info:dict = request.get_json()
             game_id = ttt.log_new_game(new_game_POST_info,db)
             if game_id:
-                return json.dumps({"message" : "Game successfully created", "game_id" : game_id })
+                return json.dumps({"message" : "game successfully created", "game_id" : game_id })
             else:
                 return json.dumps({"message":'error:no game_id returned'})
         else:
@@ -84,14 +80,17 @@ def create_app(db):
                 str_subs = (f'%{name_search}%',)
                 cur.execute(sql,str_subs)
                 game_names = cur.fetchall()
+                count = len(game_names)
             else:
             # get all game_id and game_name 
                 cur.execute("SELECT game_name, game_id FROM game_log")
                 game_names = cur.fetchall()
+                count = len(game_names)
         finally:
             cur.close()
             conn.close()
-        return json.dumps({"message":f"Game Name | Game ID \n{game_names}"})
+        # TODO: convert message to dict id:name - VISUAL
+        return json.dumps({"message": f"Game Name | Game ID \n{game_names}", "result_count":count})
 
     @ttt_app.route("/users", methods=['GET'])
     def display_users():
@@ -124,13 +123,13 @@ def create_app(db):
             if request.method == 'POST':
                 game_id = request.get_json()['game_id']
                 gb = ttt.display_gb(cur, game_id)
-                r = f'{gb}'
+                # r = f'{gb}'
             else:
-                r = "Must POST valid game_id"
+                gb = "Must POST valid game_id"
         finally:
             cur.close()
             conn.close()
-        return json.dumps({"message":r})
+        return json.dumps({"message":gb})
     return ttt_app
 
 if __name__ == "__main__":
