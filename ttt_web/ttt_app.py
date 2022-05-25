@@ -3,25 +3,30 @@ from ttt_web import ttt_backend as ttt
 from typing import Dict, List, Tuple, Union
 import pdb
 import json
-
+from pydantic import BaseModel, ValidationError
 #TODO: eliminate 'GET' method option for routes that don't need it
 
 def create_app(db):
     ttt_app = Flask(__name__)
 
-    @ttt_app.route('/new', methods=['GET','POST'])
+    @ttt_app.route('/new', methods=['POST'])
     def new_game():
-        # import pdb; pdb.set_trace()
-        if request.method == 'POST':
-            new_game_POST_info:dict = request.get_json()
-            game_id = ttt.log_new_game(new_game_POST_info,db)
-            if game_id:
-                return json.dumps({"message" : "game successfully created", "game_id" : game_id })
-            else:
-                return json.dumps({"message":'error:no game_id returned'})
+        # use pydantic to enforce type hints for POSTed data 
+        class NewGame(BaseModel):
+            game_name:str
+            board_size:int 
+            player1: str
+            player2:str
+        try:
+            new_game_info = NewGame.parse_obj(request.get_json())
+        except ValidationError as e:
+            return json.dumps({"message": e})
+        game_id = ttt.log_new_game(new_game_info,db)
+        if game_id:
+            return json.dumps({"message" : "game successfully created", "game_id" : game_id })
         else:
-            return json.dumps({"message":"Request Fields:\nboard_size\nplayer1\nplayer2\ngame_name"})
-
+            return json.dumps({"message":'error:no game_id returned'})
+    
     @ttt_app.route('/currentplayer', methods =['POST'])
     def current_player():
     #who's move is it, x/o?

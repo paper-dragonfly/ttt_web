@@ -56,13 +56,13 @@ def db_connect(db:str, autocommit=False):
     cur = conn.cursor()
     return conn,cur
     
-def log_new_game(POST_info:dict,db)->int:
+def log_new_game(game_info,db)->int:
     try: 
         conn, cur = db_connect(db)
-        board_size = POST_info['board_size']
-        player1 = POST_info['player1'].lower()
-        player2 = POST_info['player2'].lower()
-        game_name = POST_info['game_name']
+        board_size = game_info.board_size
+        player1 = game_info.player1.lower()
+        player2 = game_info.player2.lower()
+        game_name = game_info.game_name
 
     #TODO: UPGRADE ensure game names are unique (?) - 
     # currently multiple games can have same name, returned game_id will be lowest ID
