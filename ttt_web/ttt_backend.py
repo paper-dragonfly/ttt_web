@@ -5,7 +5,9 @@ import re
 from typing import Dict, List, Tuple, Union
 import psycopg2
 import yaml
-import pdb 
+import pdb
+
+from ttt_web.post_classes import NewGame 
 
 
 EMPTY_3X3_BOARD = [['_','_','_'],
@@ -34,7 +36,7 @@ def db_connect(db:str, autocommit=False):
     cur = conn.cursor()
     return conn,cur
     
-def log_new_game(game_info,db)->int:
+def log_new_game(game_info:NewGame,db)->int:
     try: 
         conn, cur = db_connect(db)
     #TODO: UPGRADE ensure game names are unique (?) - 
@@ -63,7 +65,7 @@ def log_new_game(game_info,db)->int:
 
 def check_convertable(move:str)->bool:
     move=move.upper()
-    if move[0] in ['A','B','C','D'] and int(move[1]) in [0,1,2,3] and len(move)==2:
+    if move[0] in ['A','B','C','D'] and int(move[1]) in [1,2,3,4] and len(move)==2:
         return True
     else:
         return False
@@ -195,7 +197,7 @@ def update_game_log(conn, cur, game_id:int, player_symbol:str, win:bool=True):
     str_subs = (player, game_id)
     cur.execute(sql,str_subs) 
     conn.commit()
-    return True
+    return 
 
 def display_gb(cur, game_id:int)->List[List]:
     # generate emptry board of correct size

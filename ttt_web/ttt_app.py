@@ -79,8 +79,8 @@ def create_app(db):
             
             #check win
             win = ttt.check_win(conn,cur, game_id, player_symbol)
-            if win[0]:
-                winner_updated = ttt.update_game_log(conn, cur, game_id, player_symbol)
+            if win[0]:# Win!
+                ttt.update_game_log(conn, cur, game_id, player_symbol) #update winner column in game_log
             # check stalemate 
             stale_mate = ttt.check_stale_mate(cur,game_id)
             if stale_mate:
@@ -126,7 +126,7 @@ def create_app(db):
         # add games to List[dict]
         all_games = [] 
         for i in range(count):
-            all_games.append({'game_name':[game_names[i][0]],'game_id':game_names[i][1]})
+            all_games.append({'game_name':game_names[i][0],'game_id':game_names[i][1]})
         return json.dumps({"message": all_games, "count":count})
 
     @ttt_app.route("/users", methods=['GET'])

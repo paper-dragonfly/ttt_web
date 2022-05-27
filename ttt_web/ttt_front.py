@@ -45,7 +45,7 @@ def create_new_game()-> dict:
         return {"status_code": flask_game_created['status_code'],"game_id":game_id, "player1":player1, "player2":player2}
     else:
         print(flask_game_created['status_code'], flask_game_created['message'])
-        return {"status_code": flask_game_created['status_code']}
+        return {"status_code": flask_game_created['status_code']} #TODO: I don't think this return is doing anything, need to deal with 500 error in run() function perhaps? Or return EXIT?
 
 # VISUAL | Adds row and colum labels - asethetic only
 def add_axis_title(gb:List[List]) -> List[List]:
@@ -76,7 +76,7 @@ def print_beautiful_board(gb_copy:List[List]) -> str:
     print(board_string)
     return board_string
 
-def display_board(game_id:int)->str:
+def display_board(game_id:int):
     url = root_url()+'/viewgame'
     flask_viewgame = requests.post(url, json={'game_id':game_id})
     gb = flask_viewgame.json()['message']
@@ -88,18 +88,18 @@ def load_game()->dict:
     game_id_valid = False
     if name_search == "": # search all
         url = root_url()+'/games'
-        flask_games = requests.get(url).json()
+        flask_games:dict = requests.get(url).json()
         # Print out games
         print("Game_Name | Game_ID")
         all_games:List[dict] = flask_games['message']
         for game in all_games:
             for key in game:
                 print(game[key]) 
-        # select game, ensure choice is valid game_id
+        # select game by id, ensure choice is valid game_id
         while not game_id_valid:
             try: 
                 game_id = int(input("Select the game_id for the game you want to continue: "))
-                for game in flask_games:
+                for game in flask_games['message']:
                     if game_id in game.values():
                         game_id_valid = True
             except ValueError:
@@ -153,7 +153,8 @@ def make_move(game_id:int, player:str)->dict:
 
 def display_userstats():
     select_user = input("Type a username to view their stats or press enter to view the full leader board: ")
-    flask_leaderboard = requests.get('http://localhost:5001/userstats').json()
+    url = root_url()+'/userstats'
+    flask_leaderboard = requests.get(url).json()
     if select_user == "":
         for key in flask_leaderboard:
             print(key, flask_leaderboard[key])

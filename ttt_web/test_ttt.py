@@ -161,12 +161,12 @@ def test_update_game_log():
     c.populate_game_log(1,'pie',3,'apple','pecan',conn, cur)
     c.populate_game_log(2,'pizza',3,'ham','cheese',conn, cur)
     #change winner col to pecan
-    assert tb.update_game_log(conn,cur,1,'o',True) == True
+    assert tb.update_game_log(conn,cur,1,'o',True) == None
     cur.execute('SELECT winner FROM game_log WHERE game_id =1')
     winner = cur.fetchone()[0]
     assert winner == 'pecan'
     #change winner col to stalemate
-    assert tb.update_game_log(conn,cur,2,'x',False) == True
+    assert tb.update_game_log(conn,cur,2,'x',False) == None
     cur.execute('SELECT winner FROM game_log WHERE game_id =2')
     winner = cur.fetchone()[0]
     assert winner == 'stalemate'
