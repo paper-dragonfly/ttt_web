@@ -4,6 +4,7 @@ import json
 import pdb
 from typing import Dict, List, Tuple, Union
 from ttt_web.ttt_app import create_app
+import yaml 
 
 INTRO_TEXT = """
 Welcome to Tick Tack Toe
@@ -17,6 +18,14 @@ What you can do:
 
 ENJOY!
 """
+## NICO: is this the right way to config the root url?
+def root_url(config_purpose:str='play_game',config_file:str='ttt_web/config/config.yaml') -> dict:
+    with open(f'{config_file}', 'r') as f:
+        config_dict = yaml.safe_load(f)
+    host = config_dict[config_purpose]['host']
+    # port = config_dict[config_purpose]['port']
+    return f"http://{host}:5001" 
+    # NICO: Question: when I put the port number in the config file it breaks the program at the connect_db stage. It starts that step and seems to get stuck. No error message or anything, just continual nothing ? What's the problem?
 
 def create_new_game()-> dict:
     game_name = input("Game Name: ")
@@ -28,14 +37,15 @@ def create_new_game()-> dict:
     player1 = input("Player1 Username: ")
     player2 = input("Player2 Username: ")
     data = {"game_name":game_name, "board_size":board_size,"player1":player1, "player2":player2}
-    flask_game_created = requests.post("http://localhost:5001/new", json=data).json() # {"message":"...","game_id":#}
+    url = root_url()+"/new" #http://localhost:5001/new
+    flask_game_created = requests.post(url, json=data).json() # {"status_code": #, "message":"...","game_id":#}
     # success
-    if flask_game_created['message'] == 'game successfully created':
+    if flask_game_created['status_code'] == 200:
         game_id = flask_game_created["game_id"]
-        return {"game_id":game_id, "player1":player1, "player2":player2}
+        return {"status_code": flask_game_created['status_code'],"game_id":game_id, "player1":player1, "player2":player2}
     else:
-        print(flask_game_created['message'])
-        return {"game_id":0, "player1":player1, "player2":player2}
+        print(flask_game_created['status_code'], flask_game_created['message'])
+        return {"status_code": flask_game_created['status_code']}
 
 # VISUAL | Adds row and colum labels - asethetic only
 def add_axis_title(gb:List[List]) -> List[List]:
@@ -67,36 +77,64 @@ def print_beautiful_board(gb_copy:List[List]) -> str:
     return board_string
 
 def display_board(game_id:int)->str:
-    flask_viewgame = requests.post("http://localhost:5001/viewgame", json={'game_id':game_id})
+    url = root_url()+'/viewgame'
+    flask_viewgame = requests.post(url, json={'game_id':game_id})
     gb = flask_viewgame.json()['message']
     print_beautiful_board(add_axis_title(gb))
 
 def load_game()->dict:
+    # capture user serach
     name_search = input("search for a game or press enter to list all games: ")
-    if name_search == "": # all
-        flask_games = requests.get("http://localhost:5001/games").json()
-        for key in flask_games['message']:
-            print(key+" : " + str(flask_games['message'][key]))
-        # print(flask_games["message"]) #dict of all games
-        # TODO: what if they don't put in correct input? 
-        game_id = int(input("Select the game_id for the game you want to continue: "))    
-    else: # subset
-        flask_games = requests.post("http://localhost:5001/games", json={'name':name_search}).json()
-        if flask_games['count'] == 1: # unique
-            game_board = flask_games['message']['name_search']
+    game_id_valid = False
+    if name_search == "": # search all
+        url = root_url()+'/games'
+        flask_games = requests.get(url).json()
+        # Print out games
+        print("Game_Name | Game_ID")
+        all_games:List[dict] = flask_games['message']
+        for game in all_games:
+            for key in game:
+                print(game[key]) 
+        # select game, ensure choice is valid game_id
+        while not game_id_valid:
+            try: 
+                game_id = int(input("Select the game_id for the game you want to continue: "))
+                for game in flask_games:
+                    if game_id in game.values():
+                        game_id_valid = True
+            except ValueError:
+                print("must be an integer matching a valid game_id")   
+    else: # search subset of games
+        url = root_url()+'/games'
+        flask_games = requests.post(url, json={'name':name_search}).json()
+        # if perfect match skip second selection step
+        if flask_games['count'] == 1 and 'name_search' in flask_games['message'].keys(): # unique + full game_name
+            game_id = flask_games['message']['name_search']
         else: # selection needed
-            print(flask_games['message']) 
-            game_id = int(input("Select the game_id for the game you want to continue: ")) 
-            # TODO: if bad input ...
+            # Print out games
+            print("Game_Name | Game_ID")
+            all_games:List[dict] = flask_games['message'] 
+            for game in all_games:
+                for key in game:
+                    print(game[key])
+            try: 
+                game_id = int(input("Select the game_id for the game you want to continue: ")) 
+                for game in flask_games:
+                    if game_id in game.values():
+                        game_id_valid = True
+            except ValueError:
+                print("must be an integer matching a valid game_id")    
     # display game info
-    flask_game = requests.post("http://localhost:5001/game", json={"game_id":game_id}).json()
+    url = root_url()+'/game'
+    flask_game = requests.post(url, json={"game_id":game_id}).json()
     print("\nGAME INFO")
     print("Game Name: "+flask_game['game_name'])
     print("Game ID: "+str(flask_game["game_id"]))
     print("Player1: "+flask_game['player1'])
     print("Player2: "+flask_game['player2'])
     # determin current player
-    flask_current_player = requests.post("http://localhost:5001/currentplayer", json={"game_id":game_id}).json()
+    url = root_url()+'/currentplayer'
+    flask_current_player = requests.post(url, json={"game_id":game_id}).json()
     player = flask_current_player['current_player']
     return {"game_id":game_id, "player": player, "player1": flask_game['player1'],"player2": flask_game['player2']}
 
@@ -107,10 +145,11 @@ def make_move(game_id:int, player:str)->dict:
         return {'message':'Game Exited', "game_over":True}
     if move == "userstats":
         return {'message': 'userstats', "success":False, 'game_over':False}
-    # TODO add more: leader board, undo
+    # TODO add more: undo
     move_dict = {'move': move, "game_id":game_id}
-    flask_move = requests.post("http://localhost:5001/move", json=move_dict).json()
-    return flask_move
+    url = root_url()+'/move'
+    flask_move = requests.post(url, json=move_dict).json()
+    return flask_move # dict with keys: message:str, success:boolean, game_over:boolean 
 
 def display_userstats():
     select_user = input("Type a username to view their stats or press enter to view the full leader board: ")
@@ -136,7 +175,6 @@ def run():
         player1 = game_info["player1"]
         player2 = game_info["player2"]
         player = player1
-        # TODO: what if game creation failed: if id==0, while id==0
         # game creation succeeded, get empty_board
         display_board(game_id)    
     # old

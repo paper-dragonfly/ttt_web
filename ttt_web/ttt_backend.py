@@ -7,29 +7,6 @@ import psycopg2
 import yaml
 import pdb 
 
-INTRO_TEXT = """
-\nWelcome to Tick_Tack_Toe!\n
-What you can do:
-
-/new: create a new game ->
-curl -d '{"board_size":"3","player1":"sun","player2":"moon","game_name":"star"}' -H "Content-Type: application/json" -X POST http://localhost:5001/new
-
-/move: make a move -> 
-curl -d '{"game_id":1, "move":"A1"}' -H "Content-Type: application/json" -X POST http://localhost:5001/move
-
-/games: view game(s), GET: lists all games, POST: search for games by game_name, can search by full or partial name -> 
-GET:  curl http://localhost:5001/games
-POST: curl -d '{"game_name": "game"} -H "Content-Type: application/json" -X POST http://localhost:5001/games
-
-/users: displays all users ->
-curl http://localhost:5001/games
-
-/userstats: shows user statistics (User_name, total_games, %wins, rank) | GET: displays leader board with all users | POST: search stats for single user ->
-GET:  curl http://localhost:5001/games
-POST: curl -d '{"user_name":"kaja"}' -H "Content-Type: application/json" -X POST http://localhost:5001/new
-
-/viewgame: displays game board for selected game ->
-curl -d '{"game_id":5}' -H "Content-Type: application/json" -X POST http://localhost:5001/new """
 
 EMPTY_3X3_BOARD = [['_','_','_'],
                    ['_','_','_'],
@@ -50,6 +27,7 @@ def config(config_purpose:str,config_file:str='ttt_web/config/config.yaml') -> d
     return db_params
 
 def db_connect(db:str, autocommit=False):
+    # pdb.set_trace()
     params = config(db)
     conn = psycopg2.connect(**params)
     conn.autocommit = autocommit
@@ -59,25 +37,29 @@ def db_connect(db:str, autocommit=False):
 def log_new_game(game_info,db)->int:
     try: 
         conn, cur = db_connect(db)
-        board_size = game_info.board_size
-        player1 = game_info.player1.lower()
-        player2 = game_info.player2.lower()
-        game_name = game_info.game_name
-
     #TODO: UPGRADE ensure game names are unique (?) - 
-    # currently multiple games can have same name, returned game_id will be lowest ID
-    #added MAX -> gets most recent. Doesn't prove new entry was successful
-        sql_add_new_game = """INSERT INTO game_log("game_name","board_size","player1","player2")
-                    VALUES(%s,%s,%s,%s)"""
-        str_subs_add_new_game = (game_name,board_size,player1,player2)
+    # NICO: this is my solution to catching if a new game failed to be added to the db in the case that there's another game that has the same name (which would otherwise mask the failure): check for other games with same name, find most recently added, compare that game_id to game_id of game just added, see if they're the same, if so addition of new game failed. 
+    # But its a clunky solution - improve?  
+        # check for other games with same name, get game_id for most recent
+        cur.execute("SELECT MAX(game_id) FROM game_log WHERE game_name=%s",(game_info.game_name,))
+        same_name_game = cur.fetchone()
+        same_name_id = 0
+        if same_name_game: # there is another game with same name
+            same_name_id = same_name_game[0]
+        # insert new game into db
+        sql_add_new_game = """INSERT INTO game_log("game_name","board_size","player1","player2") VALUES(%s,%s,%s,%s)"""
+        str_subs_add_new_game = (game_info.game_name, game_info.board_size,game_info.player1.lower(), game_info.player2.lower())
         cur.execute(sql_add_new_game,str_subs_add_new_game)
         conn.commit() 
-        cur.execute("SELECT MAX(game_id) FROM game_log WHERE game_name = %s",(game_name,))
+        cur.execute("SELECT MAX(game_id) FROM game_log WHERE game_name = %s",(game_info.game_name,))
         game_id:int = cur.fetchone()[0]
     finally:
         cur.close()
         conn.close()
-    return game_id
+    if game_id == same_name_id: # insert failed
+        return False 
+    else:        
+        return game_id
 
 def check_convertable(move:str)->bool:
     move=move.upper()

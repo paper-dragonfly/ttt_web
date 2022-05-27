@@ -15,7 +15,8 @@ testing:
 
 initialize:
     host: localhost
-    # port: 5001
+    port: 5001
     database: postgres
     user: katcha
     password: Null
+  

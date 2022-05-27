@@ -1,6 +1,7 @@
 import os
 import pytest
-from sandbox.sandcastles import db_connect
+from pydantic import BaseModel, ValidationError
+# from sandbox.sandcastles import db_connect
 from ttt_web import ttt_backend as tb
 from ttt_web import ttt_app as ta
 import json
@@ -8,48 +9,29 @@ import pdb
 
 from ttt_web import conftest as c 
 
-def test_home(client):
-    """
-    GIVEN a flask app 
-    WHEN the '/home' page is requested ['GET']
-    THEN check the response includes expected text
-    """
-    response = client.get("/home")
-    assert b"Welcome to Tick_Tack_Toe!" in response.data
-
-def test_home_post(client):
-    """
-    GIVEN a flask app
-    WHEN a POST request is made to "/home"
-    THEN check that a 405 error is returned 
-    """
-    response = client.post("/home")
-    assert response.status_code == 405
-
 def test_log_new_game():
     """
-    WHEN a new game is created and passed to the log_new_game function
+    GIVEN a NewGame object with game_info attributes 
+    WHEN this object is passed to the ttt_backend.log_new_game function 
     THEN confirm that the game was saved to the database
     """
-    POST_dict = {
-        'game_name':'twilight',
-        'board_size' : 3,
-        'player1' : 'blueberry',
-        'player2': 'moonshine',
-        'test':True}
-    game_id = tb.log_new_game(POST_dict, 'testing')
+    class NewGame(BaseModel):
+            game_name:str = 'twilight'
+            board_size:int = 3
+            player1: str = 'blueberry'
+            player2:str = 'moonshine'
+    game_info = NewGame()
+    game_id = tb.log_new_game(game_info, 'testing')
     assert isinstance(game_id, int)
     c.clear_test_db()
     
 def test_new_game(client):
     """
-    WHEN a GET request is sent to the /new page
-    THEN confirm expected text is returned 
+    GIVEN a flask app 
     WHEN new game is created using a POST request
     THEN confirm expected text is returned indicating successful creation of game
     """
-    response = client.get("/new")
-    assert b"Request Fields" in response.data
+
     response = client.post("/new", data=json.dumps({
         "board_size":"3",
         "player1":"sun",
@@ -57,7 +39,7 @@ def test_new_game(client):
         "game_name":"twilight",
         'test':True}), content_type='application/json')
     assert response.status_code == 200
-    assert b'Game successfully created' in response.data
+    assert b'game successfully created' in response.data
     # delete entry from db
     c.clear_test_db()
    
@@ -201,14 +183,11 @@ def test_move(client):
     conn, cur = tb.db_connect('testing')
     #create game
     c.populate_game_log(1,'iliketomoveit',3,'fish','chips',conn,cur)
-    #sent get request and confirm response
-    response = client.get('/move')
-    assert b"Request Fields: game_id, move" in response.data
     cur.close()
     conn.close()
     # send POST request
     response = client.post("/move", data=json.dumps({"game_id":1, "move":"a1"}),content_type='application/json') 
-    assert b"move successful" in response.data
+    assert b"move added" in response.data
     c.clear_test_db()
 
 def test_games(client):
@@ -256,11 +235,8 @@ def test_userstats(client):
     conn.commit()
     # send get request and assess 
     resp = client.get('userstats')
-    assert b"'kaja': [3.0, 100.0, 1]" in resp.data 
-    # send POST request
-    resp = client.post('userstats', data=json.dumps({"user_name":'kaja'}),content_type='application/json')
+    assert b'{"Player": ["Total Games", "%wins", "Rank"], "kaja": [3.0, 100.0, 1], "moon": [3.0, 33.33333333333333, 2], "nico": [3.0, null, 3], "sun": [1.0, null, 3]}' in resp.data 
     c.clear_test_db()
-    assert b"kaja, [3.0, 100.0, 1]" in resp.data
 
 def test_viewgame(client):
     #populate test_db
@@ -269,9 +245,7 @@ def test_viewgame(client):
     cur.execute("INSERT INTO move_log(game_id,player_symbol, move_coordinate) VALUES(1,'x','[0,0]'),(1,'o','[1,1]'),(1,'x','[0,2]')") 
     conn.commit() 
     resp = client.post('/viewgame', data=json.dumps({"game_id":1}), content_type='application/json')
-    assert b"[['x', '_', 'x'], ['_', 'o', '_'], ['_', '_', '_']]" in resp.data
-    resp = client.get('viewgame')
-    assert b"Must POST valid game_id" in resp.data
+    assert b'{"message": [["x", "_", "x"], ["_", "o", "_"], ["_", "_", "_"]]}' in resp.data
     c.clear_test_db()
 
 
