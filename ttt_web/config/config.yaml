@@ -1,0 +1,22 @@
+---
+play_game:
+    host: localhost
+    # port: 5001
+    database: ttt_http_api
+    user: katcha
+    password: Null
+
+testing:
+    host: localhost
+    # port: 5001
+    database: ttt_http_api_test
+    user: katcha
+    password: Null
+
+initialize:
+    host: localhost
+    port: 5001
+    database: postgres
+    user: katcha
+    password: Null
+  

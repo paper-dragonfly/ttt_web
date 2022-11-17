@@ -4,32 +4,11 @@ from datetime import datetime
 import re
 from typing import Dict, List, Tuple, Union
 import psycopg2
-from configparser import ConfigParser #to do with accesing .ini files
-import pdb 
+import yaml
+import pdb
 
-INTRO_TEXT = """
-\nWelcome to Tick_Tack_Toe!\n
-What you can do:
+from ttt_web.post_classes import NewGame 
 
-/new: create a new game ->
-curl -d '{"board_size":"3","player1":"sun","player2":"moon","game_name":"star"}' -H "Content-Type: application/json" -X POST http://localhost:5001/new
-
-/move: make a move -> 
-curl -d '{"game_id":1, "move":"A1"}' -H "Content-Type: application/json" -X POST http://localhost:5001/move
-
-/games: view game(s), GET: lists all games, POST: search for games by game_name, can search by full or partial name -> 
-GET:  curl http://localhost:5001/games
-POST: curl -d '{"game_name": "game"} -H "Content-Type: application/json" -X POST http://localhost:5001/games
-
-/users: displays all users ->
-curl http://localhost:5001/games
-
-/userstats: shows user statistics (User_name, total_games, %wins, rank) | GET: displays leader board with all users | POST: search stats for single user ->
-GET:  curl http://localhost:5001/games
-POST: curl -d '{"user_name":"kaja"}' -H "Content-Type: application/json" -X POST http://localhost:5001/new
-
-/viewgame: displays game board for selected game ->
-curl -d '{"game_id":5}' -H "Content-Type: application/json" -X POST http://localhost:5001/new """
 
 EMPTY_3X3_BOARD = [['_','_','_'],
                    ['_','_','_'],
@@ -41,52 +20,51 @@ EMPTY_4X4_BOARD = [['_','_','_','_'],
                     ['_','_','_','_']]
 
 
-# Get db connection data from config.ini 
-def config(section:str, config_file:str='ttt_web/config/config.ini') -> dict:
-    parser = ConfigParser()
-    # pdb.set_trace()
-    parser.read(config_file)
-    db_params = {}
-    if parser.has_section(section):
-        item_tups = parser.items(section)
-        for tup in item_tups:
-            db_params[tup[0]] = tup[1]
-    else:
-        raise Exception(f"Section {section} not found in file {config_file}")
-    return db_params 
+# Get db connection data from config.yaml
 
-def db_connect(db, autocommit=False):
-    conn = None
+def config(config_purpose:str,config_file:str='ttt_web/config/config.yaml') -> dict:
+    with open(f'{config_file}', 'r') as f:
+        config_dict = yaml.safe_load(f)
+    db_params = config_dict[config_purpose]
+    return db_params
+
+def db_connect(db:str, autocommit=False):
     params = config(db)
     conn = psycopg2.connect(**params)
     conn.autocommit = autocommit
     cur = conn.cursor()
     return conn,cur
     
-def log_new_game(POST_info:dict,db):
-    conn, cur = db_connect(db)
-    board_size = POST_info['board_size']
-    player1 = POST_info['player1'].lower()
-    player2 = POST_info['player2'].lower()
-    game_name = POST_info['game_name']
-
+def log_new_game(game_info:NewGame,db)->int:
+    try: 
+        conn, cur = db_connect(db)
     #TODO: UPGRADE ensure game names are unique (?) - 
-    # currently multiple games can have same name, returned game_id will be lowest ID
-    #added MAX -> gets most recent. Doesn't prove new entry was successful
-    sql_add_new_game = """INSERT INTO game_log("game_name","board_size","player1","player2")
-                VALUES(%s,%s,%s,%s)"""
-    str_subs_add_new_game = (game_name,board_size,player1,player2)
-    cur.execute(sql_add_new_game,str_subs_add_new_game)
-    conn.commit() 
-    cur.execute("SELECT MAX(game_id) FROM game_log WHERE game_name = %s",(game_name,))
-    game_id:int = cur.fetchone()[0]
-    cur.close()
-    conn.close()
-    return game_id
+    # NICO: this is my solution to catching if a new game failed to be added to the db in the case that there's another game that has the same name (which would otherwise mask the failure): check for other games with same name, find most recently added, compare that game_id to game_id of game just added, see if they're the same, if so addition of new game failed. 
+    # But its a clunky solution - improve?  
+        # check for other games with same name, get game_id for most recent
+        cur.execute("SELECT MAX(game_id) FROM game_log WHERE game_name=%s",(game_info.game_name,))
+        same_name_game = cur.fetchone()
+        same_name_id = 0
+        if same_name_game: # there is another game with same name
+            same_name_id = same_name_game[0]
+        # insert new game into db
+        sql_add_new_game = """INSERT INTO game_log("game_name","board_size","player1","player2") VALUES(%s,%s,%s,%s)"""
+        str_subs_add_new_game = (game_info.game_name, game_info.board_size,game_info.player1.lower(), game_info.player2.lower())
+        cur.execute(sql_add_new_game,str_subs_add_new_game)
+        conn.commit() 
+        cur.execute("SELECT MAX(game_id) FROM game_log WHERE game_name = %s",(game_info.game_name,))
+        game_id:int = cur.fetchone()[0]
+    finally:
+        cur.close()
+        conn.close()
+    if game_id == same_name_id: # insert failed
+        return False 
+    else:        
+        return game_id
 
 def check_convertable(move:str)->bool:
     move=move.upper()
-    if move[0] in ['A','B','C','D'] and int(move[1]) in [0,1,2,3] and len(move)==2:
+    if move[0] in ['A','B','C','D'] and int(move[1]) in [1,2,3,4] and len(move)==2:
         return True
     else:
         return False
@@ -115,7 +93,7 @@ def convert(move:str) -> list:
     c = con_dict[move][1]
     return [r,c]
 
-def check_valid(game_id:int, coordinates:list, cur:psycopg2.extensions.cursor):
+def check_valid(game_id:int, coordinates:list, cur:psycopg2.extensions.cursor)-> tuple:
     # is move in board? 
     cur.execute("SELECT board_size FROM game_log WHERE game_id = %s",(game_id,))
     size = cur.fetchone()[0]
@@ -130,21 +108,21 @@ def check_valid(game_id:int, coordinates:list, cur:psycopg2.extensions.cursor):
     # move is valid
     return (True, "move valid")
 
-def update_move_log(game_id:int, coordinates:list, conn:psycopg2.extensions.connection, cur:psycopg2.extensions.cursor)->tuple:
+def update_move_log(game_id:int, coordinates:list, conn:psycopg2.extensions.connection, cur:psycopg2.extensions.cursor)->str:
     #who's move is it, x/o?
     sql = "SELECT COUNT(*) FROM move_log WHERE game_id = %s AND player_symbol = %s"
     cur.execute(sql,(game_id,"x"))
     x_count= cur.fetchone()[0]
     cur.execute(sql,(game_id,"o"))
     o_count = cur.fetchone()[0]
-    this_move = "x"
+    player_symbol = "x"
     if x_count>o_count:
-        this_move = "o" 
+        player_symbol = "o" 
     #insert move into db
     sql = "INSERT INTO move_log(game_id,player_symbol,move_coordinate) VALUES(%s,%s,%s)"
-    cur.execute(sql,(game_id, this_move, json.dumps(coordinates)))
+    cur.execute(sql,(game_id, player_symbol, json.dumps(coordinates)))
     conn.commit()
-    return (True, "move successful", this_move)
+    return (player_symbol)
 
 
 def check_win(conn, cur, game_id:int, player_symbol:str) -> Tuple[bool,str]:
@@ -218,7 +196,7 @@ def update_game_log(conn, cur, game_id:int, player_symbol:str, win:bool=True):
     str_subs = (player, game_id)
     cur.execute(sql,str_subs) 
     conn.commit()
-    return True
+    return 
 
 def display_gb(cur, game_id:int)->List[List]:
     # generate emptry board of correct size
