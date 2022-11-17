@@ -7,7 +7,7 @@ from ttt_web import ttt_app as ta
 import json
 import pdb
 
-from ttt_web import conftest as c 
+from ttt_web.tests import conftest as c 
 
 def test_log_new_game():
     """
@@ -16,10 +16,10 @@ def test_log_new_game():
     THEN confirm that the game was saved to the database
     """
     class NewGame(BaseModel):
-            game_name:str = 'twilight'
-            board_size:int = 3
-            player1: str = 'blueberry'
-            player2:str = 'moonshine'
+        game_name:str = 'twilight'
+        board_size:int = 3
+        player1: str = 'blueberry'
+        player2:str = 'moonshine'
     game_info = NewGame()
     game_id = tb.log_new_game(game_info, 'testing')
     assert isinstance(game_id, int)

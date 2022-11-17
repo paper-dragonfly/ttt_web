@@ -13,21 +13,25 @@ app = ta.create_app('testing')
 def client():
     return app.test_client()
 
+
 def clear_test_db():
     conn, cur = db_connect('testing',True)
     cur.execute("DELETE FROM move_log *")
     cur.execute("DELETE FROM game_log *")
+
 
 def clear_game_db():
     conn, cur = db_connect('postgresql',True)
     cur.execute("DELETE FROM move_log *")
     cur.execute("DELETE FROM game_log *")
 
+
 def delete_test_db():
     conn, cur = db_connect('testing',True)
     cur.execute("""DROP DATABASE "ttt_http_api_test" """)
     cur.close()
     conn.close()
+
 
 def populate_game_log(game_id:int, game_name:str, board_size:int, player1:str, player2:str,conn, cur)-> bool:
     if game_id == 0:
@@ -39,6 +43,7 @@ def populate_game_log(game_id:int, game_name:str, board_size:int, player1:str, p
     cur.execute(sql,str_subs)
     conn.commit()
     return True
+
 
 def populate_move_log(move_id:int, game_id:int, player_symbol:str, move_coordinate:str,conn, cur)-> bool:
     if move_id == 0:

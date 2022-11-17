@@ -87,14 +87,14 @@ def load_game()->dict:
     name_search = input("search for a game or press enter to list all games: ")
     game_id_valid = False
     if name_search == "": # search all
+        # pdb.set_trace()
         url = root_url()+'/games'
         flask_games:dict = requests.get(url).json()
         # Print out games
         print("Game_Name | Game_ID")
         all_games:List[dict] = flask_games['message']
         for game in all_games:
-            for key in game:
-                print(game[key]) 
+            print(game['game_name']+' : '+ str(game['game_id']))
         # select game by id, ensure choice is valid game_id
         while not game_id_valid:
             try: 
