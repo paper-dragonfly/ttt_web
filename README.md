@@ -17,11 +17,11 @@ The game is played in the terminal. Players take turns to lay down peices ('x'/'
 
 
 ### Features
-Written in Python
-Runs in terminal 
-Built using Flask app
-Uses HTTP requests to communicate between a frontend and backend
-Saves data in postgres database
+* Written in Python
+* Runs in terminal 
+* Built using Flask app
+* Uses HTTP requests to communicate between a frontend and backend
+* Saves data in postgres database
 
 
 
