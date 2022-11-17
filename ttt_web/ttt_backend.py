@@ -29,7 +29,6 @@ def config(config_purpose:str,config_file:str='ttt_web/config/config.yaml') -> d
     return db_params
 
 def db_connect(db:str, autocommit=False):
-    # pdb.set_trace()
     params = config(db)
     conn = psycopg2.connect(**params)
     conn.autocommit = autocommit
